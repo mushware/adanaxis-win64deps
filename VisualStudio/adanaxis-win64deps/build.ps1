@@ -75,6 +75,7 @@ if ($PSScriptRoot) {
     $ProjectRoot = $(Join-Path -Resolve $pwd -ChildPath "..\..")
 }
 $AdanaxisBuildRoot = $(Join-Path -Resolve $ProjectRoot -ChildPath "VisualStudio\adanaxis-win64deps")
+$AdanaxisOutRoot = $(Join-Path $ProjectRoot -ChildPath "out")
 $LibzlibRoot = $(Join-Path -Resolve $ProjectRoot -ChildPath "zlib")
 $LibzlibBuildRoot = $(Join-Path $LibzlibRoot -ChildPath "build")
 $LibjpegRoot = $(Join-Path -Resolve $ProjectRoot -ChildPath "libjpeg-turbo")
@@ -86,16 +87,37 @@ Set-Location $AdanaxisBuildRoot
 
 $cmake_root="C:\Program Files\CMake\bin"
 $msbuild_root="C:\Program Files (x86)\Microsoft Visual Studio\2017\BuildTools\MSBuild\15.0\Bin"
+$nasm_root="C:\Program Files\NASM"
 $signtool_root="C:\Program Files (x86)\Windows Kits\10\bin\10.0.18362.0\x86"
 
-$env:PATH = "$msbuild_root;$signtool_root;$cmake_root;$env:PATH"
+$env:PATH = "$msbuild_root;$nasm_root;$signtool_root;$cmake_root;$env:PATH"
 
 Write-Host "Path for build is:"
 Get-ChildItem env:PATH | ForEach-Object { $_.Value.Split(';') }
 
+If (Test-Path $nasm_root) {
+    Write-Host "NASM already installed."
+    $nasm_job = Start-Job -ScriptBlock { Write-Output "(output from null install job) NASM already installed" }
+} Else {
+    If ($InstallMissing) {
+        Write-Host "Launching job to install NASM."
+        $nasm_job = Start-Job -File "./install_nasm.ps1"
+    } Else {
+        Throw "NASM not found but cannot install, please install or supply -InstallMissing as a parameter."
+    }
+}
+
+Receive-Job -Job $nasm_job -Wait
+
 If ($null -eq (Get-Command -ErrorAction SilentlyContinue cmake)) {
     Throw "CMake not installed, use e.g. choco install --yes cmake.install --version 3.16.2"
 }
+
+If ($null -eq (Get-Command -ErrorAction SilentlyContinue nasm)) {
+    Throw "NASM not installed, use e.g. choco install --yes nasm --version 2.14.02"
+}
+
+New-Item -ItemType "directory" -Path $AdanaxisOutRoot -Force | Foreach-Object { "Created directory $($_.FullName)" }
 
 Write-Host -ForegroundColor DarkCyan @"
 
@@ -214,7 +236,7 @@ Executing CMake to configure.
 "@
 
 $env:CFLAGS="/I`"$LibzlibBuildRoot`" /I`"$LibjpegBuildRoot`""
-$libtiff_cmake_process = Start-Process -NoNewWindow -PassThru -FilePath "cmake.exe" -ArgumentList "-G", "`"Visual Studio 15 2017 Win64`"", "-DCMAKE_VERBOSE_MAKEFILE:BOOL=ON", "-DJPEG_LIBRARY:PATH=$LibjpegBuildRoot\$Configuration\jpeg-static.lib", "-DJPEG_INCLUDE_DIR:PATH=$LibjpegRoot", "-DZLIB_LIBRARY:PATH=$LibzlibLibPath", "-DZLIB_INCLUDE_DIR:PATH=$LibzlibRoot", ".."
+$libtiff_cmake_process = Start-Process -NoNewWindow -PassThru -FilePath "cmake.exe" -ArgumentList "-G", "`"Visual Studio 15 2017 Win64`"", "-DCMAKE_VERBOSE_MAKEFILE:BOOL=ON", "-DCMAKE_INSTALL_PREFIX=$AdanaxisOutRoot", "-DJPEG_LIBRARY:PATH=$LibjpegBuildRoot\$Configuration\jpeg-static.lib", "-DJPEG_INCLUDE_DIR:PATH=$LibjpegRoot", "-DZLIB_LIBRARY:PATH=$LibzlibLibPath", "-DZLIB_INCLUDE_DIR:PATH=$LibzlibRoot", ".."
 $handle = $libtiff_cmake_process.Handle # Fix for missing ExitCode
 $libtiff_cmake_process.WaitForExit()
 
@@ -228,7 +250,7 @@ Executing CMake to build.
 
 "@
 
-$libtiff_cmake_process = Start-Process -NoNewWindow -PassThru -FilePath "cmake.exe" -ArgumentList "--build", ".", "--config", "$Configuration", "--parallel"
+$libtiff_cmake_process = Start-Process -NoNewWindow -PassThru -FilePath "cmake.exe" -ArgumentList "--build", ".", "--config", "$Configuration", "--parallel", "--target", "install"
 $handle = $libtiff_cmake_process.Handle # Fix for missing ExitCode
 $libtiff_cmake_process.WaitForExit()
 
