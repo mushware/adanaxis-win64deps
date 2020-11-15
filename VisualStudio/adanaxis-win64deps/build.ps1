@@ -81,6 +81,7 @@ $AdanaxisBuildRoot = $(Join-Path -Resolve $ProjectRoot -ChildPath "VisualStudio\
 $AdanaxisOutRoot = $(Join-Path $ProjectRoot -ChildPath "out")
 $AdanaxisOutName = "adanaxis-win64deps-$Configuration-$underscore_version.zip"
 $AdanaxisOutPath = $(Join-Path $ProjectRoot -ChildPath $AdanaxisOutName)
+$AdanaxisManifestPath = $(Join-Path $AdanaxisOutRoot -ChildPath "manifest.ps1")
 
 $LibzlibRoot = $(Join-Path -Resolve $ProjectRoot -ChildPath "zlib")
 $LibzlibBuildRoot = $(Join-Path $LibzlibRoot -ChildPath "build")
@@ -273,6 +274,40 @@ Set-Location $LibtiffRoot
 # if ($libtiff_build_process.ExitCode -ne 0) {
 #     throw "Libtiff make failed ($($libtiff_build_process.ExitCode))"
 # }
+
+Write-Host -ForegroundColor DarkCyan @"
+
+Writing file manifest to $AdanaxisManifestPath.
+
+"@
+
+Set-Location $AdanaxisOutRoot
+
+$manifest_body = Get-ChildItem -Recurse -Path . | Get-FileHash -Algorithm SHA256 | ForEach-Object { "    `"" + $(Resolve-Path $_.Path -Relative).Substring(2).Replace("\", "/") + "`" = `"" + $_.Hash + "`";`r`n" }
+ 
+Set-Content -Path $AdanaxisManifestPath @"
+`$adanaxis_win64deps_manifest = @{
+$manifest_body}
+
+# Signature below is self-signed but the timestmap verifies the time of building.
+"@
+
+if (!(Get-ChildItem cert:\CurrentUser\My -CodeSigning | Where-Object { $_.Subject -eq "CN=Local Code Signing" })) {
+    New-SelfSignedCertificate -CertStoreLocation Cert:\LocalMachine\My `
+    -Subject "CN=Local Code Signing" `
+    -KeyAlgorithm RSA `
+    -KeyLength 2048 `
+    -Provider "Microsoft Enhanced RSA and AES Cryptographic Provider" `
+    -KeyExportPolicy Exportable `
+    -KeyUsage DigitalSignature `
+    -Type CodeSigningCert
+}
+
+$cert = Get-ChildItem Cert:\LocalMachine\My -CodeSigning | Where-Object { $_.Subject -eq "CN=Local Code Signing" }
+
+Set-AuthenticodeSignature -FilePath $AdanaxisManifestPath -Certificate $cert -IncludeChain All -TimestampServer "http://timestamp.comodoca.com/authenticode"
+
+Get-Content $AdanaxisManifestPath | Write-Host -ForegroundColor DarkGray
 
 Write-Host -ForegroundColor DarkCyan @"
 
