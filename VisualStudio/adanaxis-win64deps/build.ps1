@@ -82,6 +82,8 @@ $AdanaxisOutRoot = $(Join-Path $ProjectRoot -ChildPath "out")
 $AdanaxisOutName = "adanaxis-win64deps-$Configuration-$underscore_version.zip"
 $AdanaxisOutPath = $(Join-Path $ProjectRoot -ChildPath $AdanaxisOutName)
 $AdanaxisManifestPath = $(Join-Path $AdanaxisOutRoot -ChildPath "manifest.ps1")
+$AdanaxisVersionName = "version_${Configuration}_${underscore_version}.json"
+$AdanaxisVersionPath = $(Join-Path $AdanaxisOutRoot -ChildPath $AdanaxisVersionName)
 
 $LibzlibRoot = $(Join-Path -Resolve $ProjectRoot -ChildPath "zlib")
 $LibzlibBuildRoot = $(Join-Path $LibzlibRoot -ChildPath "build")
@@ -283,17 +285,28 @@ Writing file manifest to $AdanaxisManifestPath.
 
 Set-Location $AdanaxisOutRoot
 
-$manifest_body = Get-ChildItem -Recurse -Path . | Get-FileHash -Algorithm SHA256 | ForEach-Object { "    `"" + $(Resolve-Path $_.Path -Relative).Substring(2).Replace("\", "/") + "`" = `"" + $_.Hash + "`";`r`n" }
+$version_body = @{configuration="$Configuration";version="$Version";} | ConvertTo-Json
+Set-Content -Path $AdanaxisVersionPath $version_body
+
+$manifest_body = Get-ChildItem -Recurse -Path . | Get-FileHash -Algorithm SHA256 | ForEach-Object { @{$(Resolve-Path $_.Path -Relative).Substring(2).Replace("\", "/") = $_.Hash}} | ConvertTo-Json
  
 Set-Content -Path $AdanaxisManifestPath @"
-`$adanaxis_win64deps_manifest = @{
-$manifest_body}
+$manifest_body
+#END
 
-# Signature below is self-signed but the timestmap verifies the time of building.
+# Signature below is self-signed but the timestamp verifies the time of building.
 "@
 
+Write-Host "User: ${env:UserName}"
+
+if ($env:UserName -eq "travis") {
+    $cert_store = "\LocalMachine\My"
+} else {
+    $cert_store = "\CurrentUser\My"
+}
+
 if (!(Get-ChildItem cert:\CurrentUser\My -CodeSigning | Where-Object { $_.Subject -eq "CN=Local Code Signing" })) {
-    New-SelfSignedCertificate -CertStoreLocation Cert:\LocalMachine\My `
+    New-SelfSignedCertificate -CertStoreLocation Cert:$cert_store `
     -Subject "CN=Local Code Signing" `
     -KeyAlgorithm RSA `
     -KeyLength 2048 `
@@ -303,7 +316,7 @@ if (!(Get-ChildItem cert:\CurrentUser\My -CodeSigning | Where-Object { $_.Subjec
     -Type CodeSigningCert
 }
 
-$cert = Get-ChildItem Cert:\LocalMachine\My -CodeSigning | Where-Object { $_.Subject -eq "CN=Local Code Signing" }
+$cert = Get-ChildItem Cert:$cert_store -CodeSigning | Where-Object { $_.Subject -eq "CN=Local Code Signing" }
 
 Set-AuthenticodeSignature -FilePath $AdanaxisManifestPath -Certificate $cert -IncludeChain All -TimestampServer "http://timestamp.comodoca.com/authenticode"
 
