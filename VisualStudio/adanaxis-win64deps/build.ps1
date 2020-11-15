@@ -82,6 +82,10 @@ $AdanaxisOutRoot = $(Join-Path $ProjectRoot -ChildPath "out")
 $AdanaxisOutName = "adanaxis-win64deps-$Configuration-$underscore_version.zip"
 $AdanaxisOutPath = $(Join-Path $ProjectRoot -ChildPath $AdanaxisOutName)
 $AdanaxisManifestPath = $(Join-Path $AdanaxisOutRoot -ChildPath "manifest.ps1")
+$AdanaxisTagName = "tagfile_${Configuration}_${underscore_version}.txt"
+$AdanaxisTagPath = $(Join-Path $AdanaxisOutRoot -ChildPath $AdanaxisTagName)
+$AdanaxisVersionName = "manifest.json"
+$AdanaxisVersionPath = $(Join-Path $AdanaxisOutRoot -ChildPath $AdanaxisVersionName)
 
 $LibzlibRoot = $(Join-Path -Resolve $ProjectRoot -ChildPath "zlib")
 $LibzlibBuildRoot = $(Join-Path $LibzlibRoot -ChildPath "build")
@@ -283,17 +287,36 @@ Writing file manifest to $AdanaxisManifestPath.
 
 Set-Location $AdanaxisOutRoot
 
-$manifest_body = Get-ChildItem -Recurse -Path . | Get-FileHash -Algorithm SHA256 | ForEach-Object { "    `"" + $(Resolve-Path $_.Path -Relative).Substring(2).Replace("\", "/") + "`" = `"" + $_.Hash + "`";`r`n" }
- 
-Set-Content -Path $AdanaxisManifestPath @"
-`$adanaxis_win64deps_manifest = @{
-$manifest_body}
+Get-Date -UFormat "%A %B/%d/%Y %T %Z"
+$time = Get-Date
+$time.ToUniversalTime()
+$time_str = $time.ToUniversalTime().DateTime
+$manifest = [ordered]@{configuration=$Configuration;env=[ordered]@{}; files=[ordered]@{};timestamp=$time_str;version=$Version;}
+Get-ChildItem -Recurse -Path "env:TRAVIS*" | Sort-Object FullName | ForEach-Object { $manifest["env"][$_.Name] = $_.Value }
+Get-ChildItem -Recurse -Path . | Sort-Object FullName | Get-FileHash -Algorithm SHA256 | ForEach-Object { $manifest["files"][$(Resolve-Path $_.Path -Relative).Substring(2).Replace("\", "/")] = $_.Hash}
+$manifest_content = $manifest | ConvertTo-Json
 
-# Signature below is self-signed but the timestmap verifies the time of building.
+Set-Content -Path $AdanaxisManifestPath @"
+$manifest_content
+#END
+
+# Signature below is self-signed but the timestamp verifies the time of building.
 "@
 
+Set-Content -Path $AdanaxisTagPath "$Configuration $Version ""$time_str"""
+Set-Content -Path $AdanaxisVersionPath $manifest_content
+
+Write-Host "User: ${env:UserName}"
+Write-Host "TRAVIS: ${env:TRAVIS}"
+
+if ($env:TRAVIS -eq "true") {
+    $cert_store = "\LocalMachine\My"
+} else {
+    $cert_store = "\CurrentUser\My"
+}
+
 if (!(Get-ChildItem cert:\CurrentUser\My -CodeSigning | Where-Object { $_.Subject -eq "CN=Local Code Signing" })) {
-    New-SelfSignedCertificate -CertStoreLocation Cert:\LocalMachine\My `
+    New-SelfSignedCertificate -CertStoreLocation Cert:$cert_store `
     -Subject "CN=Local Code Signing" `
     -KeyAlgorithm RSA `
     -KeyLength 2048 `
@@ -303,7 +326,7 @@ if (!(Get-ChildItem cert:\CurrentUser\My -CodeSigning | Where-Object { $_.Subjec
     -Type CodeSigningCert
 }
 
-$cert = Get-ChildItem Cert:\LocalMachine\My -CodeSigning | Where-Object { $_.Subject -eq "CN=Local Code Signing" }
+$cert = Get-ChildItem Cert:$cert_store -CodeSigning | Where-Object { $_.Subject -eq "CN=Local Code Signing" }
 
 Set-AuthenticodeSignature -FilePath $AdanaxisManifestPath -Certificate $cert -IncludeChain All -TimestampServer "http://timestamp.comodoca.com/authenticode"
 
@@ -331,3 +354,5 @@ Write-Host -ForegroundColor Green @"
 "@
 
 Write-Host -ForegroundColor Blue "$Configuration build complete for Adanaxis win64Deps version $Version"
+$archive_hash = (Get-FileHash -Algorithm SHA256 $AdanaxisOutPath).Hash
+Write-Host -ForegroundColor DarkGray "$AdanaxisOutName SHA256 is $archive_hash"

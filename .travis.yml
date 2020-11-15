@@ -1,8 +1,6 @@
 before_deploy:
 - git config --local user.name "Mushware Machine"
 - git config --local user.email "machine@mushware.com"
-before_script:
-- "$BEFORE_SCRIPT"
 deploy:
   edge: true
   file: adanaxis*.zip
@@ -23,6 +21,4 @@ git:
 language: cpp
 os: windows
 script:
-- unset BEFORE_SCRIPT
-- unset BEFORE_SCRIPT_TOKEN
 - VisualStudio/adanaxis-win64deps/build_travis.bat
