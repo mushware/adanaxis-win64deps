@@ -14,3 +14,15 @@ MushRuby build of Ruby DLL https://www.ruby-lang.org, https://github.com/mushwar
 Simple DirectMedia Layer https://www.libsdl.org/
 
     SDL
+
+Zlib https://github.com/madler/zlib.git
+
+    zlib
+
+Libjpeg-turbo https://github.com/libjpeg-turbo/libjpeg-turbo.git
+
+    libjpeg-turbo
+
+Libtiff https://gitlab.com/libtiff/libtiff.git
+
+    libtiff

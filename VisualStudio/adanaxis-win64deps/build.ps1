@@ -74,8 +74,14 @@ if ($PSScriptRoot) {
 } Else {
     $ProjectRoot = $(Join-Path -Resolve $pwd -ChildPath "..\..")
 }
+
+$underscore_version = $Version.Replace(".", "_")
+
 $AdanaxisBuildRoot = $(Join-Path -Resolve $ProjectRoot -ChildPath "VisualStudio\adanaxis-win64deps")
 $AdanaxisOutRoot = $(Join-Path $ProjectRoot -ChildPath "out")
+$AdanaxisOutName = "adanaxis-win64deps-$Configuration-$underscore_version.zip"
+$AdanaxisOutPath = $(Join-Path $ProjectRoot -ChildPath $AdanaxisOutName)
+
 $LibzlibRoot = $(Join-Path -Resolve $ProjectRoot -ChildPath "zlib")
 $LibzlibBuildRoot = $(Join-Path $LibzlibRoot -ChildPath "build")
 $LibjpegRoot = $(Join-Path -Resolve $ProjectRoot -ChildPath "libjpeg-turbo")
@@ -267,6 +273,17 @@ Set-Location $LibtiffRoot
 # if ($libtiff_build_process.ExitCode -ne 0) {
 #     throw "Libtiff make failed ($($libtiff_build_process.ExitCode))"
 # }
+
+Write-Host -ForegroundColor DarkCyan @"
+
+Creating output archive $AdanaxisOutName.
+
+"@
+
+If (Test-Path $AdanaxisOutPath) {
+    Remove-Item $AdanaxisOutPath
+}
+Get-ChildItem -Path $AdanaxisOutRoot | Compress-Archive -DestinationPath $AdanaxisOutPath
 
 Write-Host -ForegroundColor Green @"
 

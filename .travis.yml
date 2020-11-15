@@ -1,11 +1,11 @@
 before_deploy:
-  - git config --local user.name "Mushware Machine"
-  - git config --local user.email "machine@mushware.com"
+- git config --local user.name "Mushware Machine"
+- git config --local user.email "machine@mushware.com"
 before_script:
-  - $BEFORE_SCRIPT
+- "$BEFORE_SCRIPT"
 deploy:
   edge: true
-  file: out/*
+  file: adanaxis*.zip
   file_glob: true
   provider: releases
   on:
@@ -14,15 +14,15 @@ deploy:
   prerelease: true
   repo: mushware/adanaxis-win64deps
   token:
-    secure: AcfEZALD+5/ErRGgHICOoNAWKasgGm3mIrfKbUOvAIje6NDNN9219IMJok8iTw87ViuMWIkp27dZbLvyp9x1Jwe7tcM9s5K+35UAnbCMVX7s+fX2eMl08Y7lr9UOJOZrJxAgFDqCBv8MghC6HgYe1uUY4YQRSyj+BiNqbuPy70ySQXmxLzLZTSH1ZjSWAmx0uJ/YeQen9rdnVM4a6MuMUfk5pFdr7CxLqf9NJJjun/uWPPv4g66ec2jLCp8uH8GTQGeWprf0uumnqvvZ1TH8WwBMLfQEECIKpbYcVHlsQZKJtvrTY9GrWZxafNXaUYS4+N2PFq+P41bKw9inJTBlXfR1jVB+GObZ88UR5HnZlPc+lkM/JR0coD0+V8Iywb0cRXUPhHGaoHKi/ef+a2+QZ6UPPqvF2fSPJ/hnGZSvXFSLAUcZLjcmTacaf4DRyFRd1A4VkxdZvNSPexovyMr881+HNVhVaWnd7LGaNtaV2HUQP/FDuyenC73OUnQhVQq3bPHaDrA8HKAS0A0LyLknKe2pLX+NkGY4eaXuXjDJwzT0PxTba0ww7pq9bJ1h4U732PgbaLdcJe15j3Nture7boSLoEWyto/Rb1WBSh6PWYH1m+ZRVga6wF1YpyTc0ZCiIsWJGh1jhvb59UpxFjRiUfVNWAARvB+5qma5muODLLg=
+    secure: uw9WK2QH6ZbTwdV5sFAcqMqxFpp4ZlutGi5zkCakzJiwD40xxNTSVrMgxPYKYJGZz2fShuD2U2F/UaXla87IJsjzwXyG/ew7dcjrEZnYkGjd2fZtl+XELLaltEMgkXbufCza78HbxjPJzOTv9j+auEv5jJfumtsIkGxiQ2OlOq6nHdJX9b7IcWH2s9Raie3o/+QtlJf+6adc+VVSf8dVg6Mhap5A4SyRvXpt4CEgstX/CnC9bZXq5MSSltULmKGiqIQhVSKJEYVzl/RtcNtjnf9DVmoSoU7uqXKgC+gQmJ0Ny8AFgW2vEeU/+KpBmGMpklRgugJjG/PnDM0oBwFQA5kfgoG3kbdWiUgtXHV4qqVx2MD/drfLgug/QzX7kE6n9UY7r7+wsoe0qpUaw2SVLrohCYHfd2R7jFoBrpwI21whreXyUiEson+8slXcOuA5s2jotMGuc8q4it+XvFTaBpBL6m+Nwcr//elxi5IuiJxkUESeaL5sKbq2rq9jDUnYFHgdrE2CLiNCOUdhUsxkA+5yk5AkwWcP+poUTBaLWBkYMCOSJaDohfxzErZoICnP6JFZJNJ/lWcoLR/TLr9f5ay1URQQ/y/CxzqIWcfd2wRYm1RpUeVg2vpdM094TKWlgCpK9Agnj4JpZ3lXEEsm+QmA5JyFCwo/NbPH3ExWvIw=
 env:
-  - BUILD_CONFIGURATION=Debug
-  - BUILD_CONFIGURATION=Release
+- BUILD_CONFIGURATION=Debug
+- BUILD_CONFIGURATION=Release
 git:
   depth: 3
 language: cpp
 os: windows
 script:
-  - unset BEFORE_SCRIPT
-  - unset BEFORE_SCRIPT_TOKEN
-  - VisualStudio/adanaxis-win64deps/build_travis.bat
+- unset BEFORE_SCRIPT
+- unset BEFORE_SCRIPT_TOKEN
+- VisualStudio/adanaxis-win64deps/build_travis.bat
