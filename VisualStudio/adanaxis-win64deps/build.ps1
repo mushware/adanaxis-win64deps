@@ -36,6 +36,10 @@ Set-StrictMode -Version 3.0
 
 $ErrorActionPreference = "Stop"
 
+$LibpcreName = "pcre-8.44"
+$LibpcreZipName = "$LibpcreName.zip"
+$LibpcreUrl = "https://ftp.pcre.org/pub/pcre/$LibpcreZipName"
+
 If ($BuildNumber) {
     If ($BuildNumber -as [int] -gt 65534) {
         Throw "Build number too large"
@@ -94,6 +98,10 @@ $LibjpegBuildRoot = $(Join-Path $LibjpegRoot -ChildPath "build")
 $LibtiffRoot = $(Join-Path -Resolve $ProjectRoot -ChildPath "libtiff")
 $LibtiffBuildRoot = $(Join-Path $LibtiffRoot -ChildPath "build")
 $LibtiffBuildRootCMakeLists = $(Join-Path $LibtiffBuildRoot -ChildPath "CMakeLists.txt")
+$LibpcreRoot = $(Join-Path $ProjectRoot -ChildPath "libpcre")
+$LibpcreBuildRoot = $(Join-Path $LibpcreRoot -ChildPath $LibpcreName)
+$LibpcreTagPath = $(Join-Path $LibpcreBuildRoot -ChildPath "CMakeLists.txt")
+$LibpcreZipPath = $(Join-Path $LibpcreRoot -ChildPath $LibpcreZipName)
 Set-Location $AdanaxisBuildRoot
 
 $cmake_root="C:\Program Files\CMake\bin"
@@ -129,6 +137,74 @@ If ($null -eq (Get-Command -ErrorAction SilentlyContinue nasm)) {
 }
 
 New-Item -ItemType "directory" -Path $AdanaxisOutRoot -Force | Foreach-Object { "Created directory $($_.FullName)" }
+
+Write-Host -ForegroundColor DarkCyan @"
+
+*********************************************************************
+*                                                                   *
+*    Building pcre library                                          *
+*    Props to https://www.pcre.org/                                 *
+*                                                                   *
+*********************************************************************
+
+"@
+
+New-Item -ItemType "directory" -Path $LibpcreRoot -Force | Foreach-Object { "Created directory $($_.FullName)" }
+
+Set-Location $LibpcreRoot
+
+if (Test-Path $LibpcreZipPath) {
+    Write-Host -ForegroundColor Green @"
+
+File ${LibpcreZipPath} already present in ${LibpcreRoot} so not downloading.
+
+"@
+} else {
+    Write-Host  -ForegroundColor Blue @"
+
+Fetching ${LibpcreZipName}
+to ${LibpcreZipPath}
+from ${libpcreUrl}
+
+"@
+    Invoke-WebRequest -Uri $LibpcreUrl -OutFile $LibpcreZipPath
+}
+
+if (Test-Path $LibpcreTagPath) {
+    Write-Host "Removing previous Libpcre directory ${LibpcreBuildRoot}"
+    Remove-Item -Path $LibpcreBuildRoot -Recurse
+}
+
+Expand-Archive $LibpcreZipPath -DestinationPath $LibpcreRoot
+
+Set-Location $LibpcreBuildRoot
+
+Write-Host -ForegroundColor DarkCyan @"
+
+Executing CMake to configure.
+
+"@
+$libpcre_cmake_process = Start-Process -NoNewWindow -PassThru -FilePath "cmake.exe" -ArgumentList "-G", "`"Visual Studio 15 2017 Win64`"", "-DCMAKE_VERBOSE_MAKEFILE:BOOL=ON", "-DCMAKE_INSTALL_PREFIX=$AdanaxisOutRoot"
+$handle = $libpcre_cmake_process.Handle # Fix for missing ExitCode
+$libpcre_cmake_process.WaitForExit()
+
+if ($libpcre_cmake_process.ExitCode -ne 0) {
+    throw "Libpcre CMake failed ($($libpcre_cmake_process.ExitCode))"
+}
+
+Write-Host -ForegroundColor DarkCyan @"
+
+Executing CMake to build.
+
+"@
+
+$libpcre_cmake_process = Start-Process -NoNewWindow -PassThru -FilePath "cmake.exe" -ArgumentList "--build", ".", "--config", "$Configuration", "--parallel", "--target", "install"
+$handle = $libpcre_cmake_process.Handle # Fix for missing ExitCode
+$libpcre_cmake_process.WaitForExit()
+
+if ($libpcre_cmake_process.ExitCode -ne 0) {
+    throw "Libpcre CMake failed ($($libpcre_cmake_process.ExitCode))"
+}
 
 Write-Host -ForegroundColor DarkCyan @"
 
@@ -278,6 +354,8 @@ Set-Location $LibtiffRoot
 # if ($libtiff_build_process.ExitCode -ne 0) {
 #     throw "Libtiff make failed ($($libtiff_build_process.ExitCode))"
 # }
+
+
 
 Write-Host -ForegroundColor DarkCyan @"
 
