@@ -1,5 +1,4 @@
 # Adanaxis ignores
 libpcre/
-libpcre/
 out/
 *.zip
