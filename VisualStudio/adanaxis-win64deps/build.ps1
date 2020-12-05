@@ -91,17 +91,19 @@ $AdanaxisTagPath = $(Join-Path $AdanaxisOutRoot -ChildPath $AdanaxisTagName)
 $AdanaxisVersionName = "manifest.json"
 $AdanaxisVersionPath = $(Join-Path $AdanaxisOutRoot -ChildPath $AdanaxisVersionName)
 
+$LibpcreRoot = $(Join-Path $ProjectRoot -ChildPath "libpcre")
+$LibpcreBuildRoot = $(Join-Path $LibpcreRoot -ChildPath $LibpcreName)
+$LibpcreTagPath = $(Join-Path $LibpcreBuildRoot -ChildPath "CMakeLists.txt")
+$LibpcreZipPath = $(Join-Path $LibpcreRoot -ChildPath $LibpcreZipName)
 $LibzlibRoot = $(Join-Path -Resolve $ProjectRoot -ChildPath "zlib")
 $LibzlibBuildRoot = $(Join-Path $LibzlibRoot -ChildPath "build")
+$LibexpatRoot = $(Join-Path $ProjectRoot -ChildPath "libexpat")
+$LibexpatBuildRoot = $(Join-Path $LibexpatRoot -ChildPath "expat")
 $LibjpegRoot = $(Join-Path -Resolve $ProjectRoot -ChildPath "libjpeg-turbo")
 $LibjpegBuildRoot = $(Join-Path $LibjpegRoot -ChildPath "build")
 $LibtiffRoot = $(Join-Path -Resolve $ProjectRoot -ChildPath "libtiff")
 $LibtiffBuildRoot = $(Join-Path $LibtiffRoot -ChildPath "build")
 $LibtiffBuildRootCMakeLists = $(Join-Path $LibtiffBuildRoot -ChildPath "CMakeLists.txt")
-$LibpcreRoot = $(Join-Path $ProjectRoot -ChildPath "libpcre")
-$LibpcreBuildRoot = $(Join-Path $LibpcreRoot -ChildPath $LibpcreName)
-$LibpcreTagPath = $(Join-Path $LibpcreBuildRoot -ChildPath "CMakeLists.txt")
-$LibpcreZipPath = $(Join-Path $LibpcreRoot -ChildPath $LibpcreZipName)
 Set-Location $AdanaxisBuildRoot
 
 $cmake_root="C:\Program Files\CMake\bin"
@@ -137,74 +139,6 @@ If ($null -eq (Get-Command -ErrorAction SilentlyContinue nasm)) {
 }
 
 New-Item -ItemType "directory" -Path $AdanaxisOutRoot -Force | Foreach-Object { "Created directory $($_.FullName)" }
-
-Write-Host -ForegroundColor DarkCyan @"
-
-*********************************************************************
-*                                                                   *
-*    Building pcre library                                          *
-*    Props to https://www.pcre.org/                                 *
-*                                                                   *
-*********************************************************************
-
-"@
-
-New-Item -ItemType "directory" -Path $LibpcreRoot -Force | Foreach-Object { "Created directory $($_.FullName)" }
-
-Set-Location $LibpcreRoot
-
-if (Test-Path $LibpcreZipPath) {
-    Write-Host -ForegroundColor Green @"
-
-File ${LibpcreZipPath} already present in ${LibpcreRoot} so not downloading.
-
-"@
-} else {
-    Write-Host  -ForegroundColor Blue @"
-
-Fetching ${LibpcreZipName}
-to ${LibpcreZipPath}
-from ${libpcreUrl}
-
-"@
-    Invoke-WebRequest -Uri $LibpcreUrl -OutFile $LibpcreZipPath
-}
-
-if (Test-Path $LibpcreTagPath) {
-    Write-Host "Removing previous Libpcre directory ${LibpcreBuildRoot}"
-    Remove-Item -Path $LibpcreBuildRoot -Recurse
-}
-
-Expand-Archive $LibpcreZipPath -DestinationPath $LibpcreRoot
-
-Set-Location $LibpcreBuildRoot
-
-Write-Host -ForegroundColor DarkCyan @"
-
-Executing CMake to configure.
-
-"@
-$libpcre_cmake_process = Start-Process -NoNewWindow -PassThru -FilePath "cmake.exe" -ArgumentList "-G", "`"Visual Studio 15 2017 Win64`"", "-DCMAKE_VERBOSE_MAKEFILE:BOOL=ON", "-DCMAKE_INSTALL_PREFIX=$AdanaxisOutRoot"
-$handle = $libpcre_cmake_process.Handle # Fix for missing ExitCode
-$libpcre_cmake_process.WaitForExit()
-
-if ($libpcre_cmake_process.ExitCode -ne 0) {
-    throw "Libpcre CMake failed ($($libpcre_cmake_process.ExitCode))"
-}
-
-Write-Host -ForegroundColor DarkCyan @"
-
-Executing CMake to build.
-
-"@
-
-$libpcre_cmake_process = Start-Process -NoNewWindow -PassThru -FilePath "cmake.exe" -ArgumentList "--build", ".", "--config", "$Configuration", "--parallel", "--target", "install"
-$handle = $libpcre_cmake_process.Handle # Fix for missing ExitCode
-$libpcre_cmake_process.WaitForExit()
-
-if ($libpcre_cmake_process.ExitCode -ne 0) {
-    throw "Libpcre CMake failed ($($libpcre_cmake_process.ExitCode))"
-}
 
 Write-Host -ForegroundColor DarkCyan @"
 
@@ -254,6 +188,49 @@ $libzlib_cmake_process.WaitForExit()
 
 if ($libzlib_cmake_process.ExitCode -ne 0) {
     throw "Libzlib CMake failed ($($libzlib_cmake_process.ExitCode))"
+}
+
+Write-Host -ForegroundColor DarkCyan @"
+
+*********************************************************************
+*                                                                   *
+*    Building expat library                                         *
+*    Props to https://github.com/libexpat/libexpat.git              *
+*                                                                   *
+*********************************************************************
+
+"@
+
+New-Item -ItemType "directory" -Path $LibexpatBuildRoot -Force | Foreach-Object { "Created directory $($_.FullName)" }
+
+Set-Location $LibexpatBuildRoot
+
+Write-Host -ForegroundColor DarkCyan @"
+
+Executing CMake to configure.
+
+"@
+
+$libexpat_cmake_process = Start-Process -NoNewWindow -PassThru -FilePath "cmake.exe" -ArgumentList "-G", "`"Visual Studio 15 2017 Win64`"", "-DCMAKE_VERBOSE_MAKEFILE:BOOL=ON", "-DCMAKE_INSTALL_PREFIX=$AdanaxisOutRoot", "-DEXPAT_SHARED_LIBS:BOOL=OFF", "."
+$handle = $libexpat_cmake_process.Handle # Fix for missing ExitCode
+$libexpat_cmake_process.WaitForExit()
+
+if ($libexpat_cmake_process.ExitCode -ne 0) {
+    throw "Libexpat CMake failed ($($libexpat_cmake_process.ExitCode))"
+}
+
+Write-Host -ForegroundColor DarkCyan @"
+
+Executing CMake to build.
+
+"@
+
+$libexpat_cmake_process = Start-Process -NoNewWindow -PassThru -FilePath "cmake.exe" -ArgumentList "--build", ".", "--config", "$Configuration", "--parallel", "--target", "install"
+$handle = $libexpat_cmake_process.Handle # Fix for missing ExitCode
+$libexpat_cmake_process.WaitForExit()
+
+if ($libexpat_cmake_process.ExitCode -ne 0) {
+    throw "Libexpat CMake failed ($($libexpat_cmake_process.ExitCode))"
 }
 
 Write-Host -ForegroundColor DarkCyan @"
@@ -355,6 +332,74 @@ Set-Location $LibtiffRoot
 #     throw "Libtiff make failed ($($libtiff_build_process.ExitCode))"
 # }
 
+
+Write-Host -ForegroundColor DarkCyan @"
+
+*********************************************************************
+*                                                                   *
+*    Building pcre library                                          *
+*    Props to https://www.pcre.org/                                 *
+*                                                                   *
+*********************************************************************
+
+"@
+
+New-Item -ItemType "directory" -Path $LibpcreRoot -Force | Foreach-Object { "Created directory $($_.FullName)" }
+
+Set-Location $LibpcreRoot
+
+if (Test-Path $LibpcreZipPath) {
+    Write-Host -ForegroundColor Green @"
+
+File ${LibpcreZipPath} already present in ${LibpcreRoot} so not downloading.
+
+"@
+} else {
+    Write-Host  -ForegroundColor Blue @"
+
+Fetching ${LibpcreZipName}
+to ${LibpcreZipPath}
+from ${libpcreUrl}
+
+"@
+    Invoke-WebRequest -Uri $LibpcreUrl -OutFile $LibpcreZipPath
+}
+
+if (Test-Path $LibpcreTagPath) {
+    Write-Host "Removing previous Libpcre directory ${LibpcreBuildRoot}"
+    Remove-Item -Path $LibpcreBuildRoot -Recurse
+}
+
+Expand-Archive $LibpcreZipPath -DestinationPath $LibpcreRoot
+
+Set-Location $LibpcreBuildRoot
+
+Write-Host -ForegroundColor DarkCyan @"
+
+Executing CMake to configure.
+
+"@
+$libpcre_cmake_process = Start-Process -NoNewWindow -PassThru -FilePath "cmake.exe" -ArgumentList "-G", "`"Visual Studio 15 2017 Win64`"", "-DCMAKE_VERBOSE_MAKEFILE:BOOL=ON", "-DCMAKE_INSTALL_PREFIX=$AdanaxisOutRoot", "."
+$handle = $libpcre_cmake_process.Handle # Fix for missing ExitCode
+$libpcre_cmake_process.WaitForExit()
+
+if ($libpcre_cmake_process.ExitCode -ne 0) {
+    throw "Libpcre CMake failed ($($libpcre_cmake_process.ExitCode))"
+}
+
+Write-Host -ForegroundColor DarkCyan @"
+
+Executing CMake to build.
+
+"@
+
+$libpcre_cmake_process = Start-Process -NoNewWindow -PassThru -FilePath "cmake.exe" -ArgumentList "--build", ".", "--config", "$Configuration", "--parallel", "--target", "install"
+$handle = $libpcre_cmake_process.Handle # Fix for missing ExitCode
+$libpcre_cmake_process.WaitForExit()
+
+if ($libpcre_cmake_process.ExitCode -ne 0) {
+    throw "Libpcre CMake failed ($($libpcre_cmake_process.ExitCode))"
+}
 
 
 Write-Host -ForegroundColor DarkCyan @"
