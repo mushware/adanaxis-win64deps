@@ -241,9 +241,9 @@ if ($libzlib_cmake_process.ExitCode -ne 0) {
 }
 
 if ($Configuration -eq "Debug") {
-    $LibzlibLibPath = "$LibzlibBuildRoot\$Configuration\zlibd.lib"
+    $LibzlibLibPath = "$LibzlibBuildRoot\$Configuration\zlibstaticd.lib"
 } else {
-    $LibzlibLibPath = "$LibzlibBuildRoot\$Configuration\zlib.lib"
+    $LibzlibLibPath = "$LibzlibBuildRoot\$Configuration\zlibstatic.lib"
 }
 
 Write-Host -ForegroundColor DarkCyan @"
